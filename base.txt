@@ -1,0 +1,57 @@
+Gradient Boosting Decision Tree (GBDT) è un algoritmo di machine learning ampiamente utilizzato per la sua accuratezza e interpretabilità. Tuttavia, con dataset di grandi dimensioni o con molte feature, presenta problemi di scalabilità.
+La principale difficoltà risiede nella necessità di analizzare tutti i dati per ogni feature al fine di calcolare i possibili split e valutare il guadagno informativo, un'operazione computazionalmente onerosa.
+
+Per affrontare queste sfide, proponiamo due tecniche innovative integrate nell'implementazione denominata LightGBM:
+
+    Gradient-based One-Side Sampling (GOSS).
+    Exclusive Feature Bundling (EFB).
+
+Gradient-based One-Side Sampling (GOSS)
+
+In GBDT, i gradienti associati alle istanze riflettono il loro contributo al calcolo del guadagno informativo.
+I gradienti elevati indicano istanze sotto-addestrate e quindi più rilevanti per il modello.
+GOSS sfrutta questa proprietà escludendo una porzione significativa di istanze con gradienti bassi e concentrandosi su quelle con gradienti alti.
+
+    Procedura:
+        Ordiniamo le istanze in base al valore assoluto del loro gradiente.
+        Selezioniamo una percentuale a×100% delle istanze con gradienti maggiori.
+        Campioniamo casualmente b×100% delle istanze con gradienti minori.
+        Le istanze con gradienti bassi rimanenti vengono amplificate con un moltiplicatore costante (1−a)/b per compensare l’impatto sulla distribuzione dei dati nel calcolo del guadagno informativo.
+
+    Vantaggi:
+        Riduce significativamente la dimensione del campione senza alterare eccessivamente la distribuzione originale.
+        Garantisce un’accurata stima del guadagno informativo, migliorando le prestazioni rispetto al campionamento casuale.
+
+    Analisi teorica:
+        L’errore di approssimazione di GOSS rispetto al calcolo completo decresce rapidamente all’aumentare del numero di dati (O(sqrt(n))), garantendo una perdita minima di precisione per dataset ampi.
+        GOSS incrementa anche la diversità dei modelli di base, migliorando la generalizzazione.
+
+Exclusive Feature Bundling (EFB)
+
+I dataset reali spesso presentano uno spazio delle feature sparso, con molte variabili mutualmente esclusive, ovvero che raramente assumono valori diversi da zero simultaneamente (ad esempio, rappresentazioni one-hot). EFB riduce il numero effettivo di feature combinando queste feature in "bundle".
+
+    Problema e soluzione:
+        Il problema di raggruppare feature in bundle esclusivi minimizzando il numero totale di bundle è NP-hard, perché equivalente al problema della colorazione dei grafi.
+        EFB utilizza un algoritmo greedy:
+            Costruisce un grafo in cui ogni feature è un nodo e gli archi rappresentano conflitti (uso simultaneo).
+            Ordina le feature in base al grado nel grafo (nodi con più conflitti).
+            Assegna ogni feature a un bundle esistente con conflitti limitati o ne crea uno nuovo.
+            Questo approccio è approssimativo, ma efficace in pratica.
+
+    Fusione delle feature:
+        Per preservare i valori originali, ogni feature in un bundle è mappata su intervalli distinti tramite offset. Ad esempio:
+            La feature A con valori [0,10) e la feature B con valori [0,20) vengono trasformate rispettivamente in [0,10) e [10,30), consentendo la loro fusione in un singolo bundle con range [0,30).
+
+    Vantaggi:
+        La complessità della costruzione dell'istogramma passa da O(#data×#feature) a O(#data×#bundle), con #bundle≪#feature.
+        Migliora significativamente l'efficienza computazionale senza compromettere la precisione.
+
+    Tolleranza ai conflitti:
+        EFB può tollerare un piccolo tasso di conflitti (γ) per ridurre ulteriormente il numero di bundle. Anche con γ>0, l’impatto sull’accuratezza dell’addestramento è limitato (O([(1−γ)n]^(−2/3)).
+
+Conclusioni e risultati
+
+    LightGBM, combinando GOSS ed EFB, accelera il training di GBDT fino a 20 volte rispetto ad approcci tradizionali come XGBoost, mantenendo una precisione comparabile.
+    I test su dataset reali dimostrano:
+        Significativi miglioramenti nei tempi di addestramento, specialmente con dataset grandi e sparsi.
+        Prestazioni robuste e competitive in vari scenari applicativi.
